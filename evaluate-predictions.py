@@ -49,6 +49,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="only evaluate the first 5 questions",
     )
+    parser.add_argument(
+        "--apikey",
+        type=str,
+        default=None,
+    )
     args = parser.parse_args()
     assert args.results.exists()
     assert args.dataset.exists()
@@ -60,17 +65,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def main(args: argparse.Namespace):
-    # load dataset
-    dataset = json.load(args.dataset.open("r"))
-    dataset_question_ids = [item["question_id"] for item in dataset]
-    question_id_to_item = {item["question_id"]: item for item in dataset}
-    print("found {:,} questions".format(len(dataset)))
-
     # load results
     results = json.load(args.results.open("r"))
     results_question_ids = [item["question_id"] for item in results]
     question_id_to_result = {result["question_id"]: result for result in results}
     print("found {:,} results".format(len(results)))
+
+    # load dataset
+    dataset = json.load(args.dataset.open("r"))
+    dataset_question_ids = [item["question_id"] for item in dataset]
+    question_id_to_item = {item["question_id"]: item for item in dataset}
+    # keep only existing questions
+    dataset_question_ids = [quest_id for quest_id in dataset_question_ids if quest_id in results_question_ids]
+    dataset = [item for item in dataset if item["question_id"] in dataset_question_ids]
+    question_id_to_item = {item["question_id"]: item for item in dataset}
+    print("found {:,} questions".format(len(dataset)))
 
     # check that results and dataset match
     if not args.force:
@@ -107,6 +116,8 @@ def main(args: argparse.Namespace):
             answer=item["answer"],
             prediction=result["answer"],
             extra_answers=extra_answers,
+            openai_model='gpt4',
+            openai_key=args.apikey,
         )
 
         all_scores[question_id] = score

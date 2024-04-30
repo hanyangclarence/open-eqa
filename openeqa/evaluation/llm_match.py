@@ -61,6 +61,7 @@ def get_llm_match_score(
             max_tokens=openai_max_tokens,
             temperature=openai_temperature,
             verbose=verbose,
+            api_key=openai_key,
         )
         return parse_score(output)
     except Exception as e:

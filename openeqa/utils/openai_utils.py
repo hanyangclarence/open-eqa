@@ -10,6 +10,7 @@ from typing import List, Optional
 import cv2
 import openai
 from tenacity import retry, stop_after_attempt, wait_random_exponential
+from openai import AzureOpenAI
 
 
 def set_openai_key(key: Optional[str] = None):
@@ -65,8 +66,21 @@ def call_openai_api(
     max_tokens: int = 32,
     temperature: float = 0.2,
     verbose: bool = False,
+    api_key: Optional[str] = None,
 ):
-    client = openai.OpenAI()
+    # client = openai.OpenAI()
+    # completion = client.chat.completions.create(
+    #     model=model,
+    #     messages=messages,
+    #     seed=seed,
+    #     max_tokens=max_tokens,
+    #     temperature=temperature,
+    # )
+    client = AzureOpenAI(
+        azure_endpoint="https://yuncong.openai.azure.com/",
+        api_key=api_key,
+        api_version="2024-02-15-preview"
+    )
     completion = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -74,6 +88,7 @@ def call_openai_api(
         max_tokens=max_tokens,
         temperature=temperature,
     )
+
     if verbose:
         print("openai api response: {}".format(completion))
     assert len(completion.choices) == 1
