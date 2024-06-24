@@ -78,9 +78,15 @@ def call_openai_api(
     # )
     client = AzureOpenAI(
         azure_endpoint="https://yuncong.openai.azure.com/",
-        api_key=api_key,
+        api_key="0cf65c0a872e49d7a4442ffe086b9652",
         api_version="2024-02-15-preview"
     )
+    # If need to use gpt-4v
+    # client = openai.AzureOpenAI(
+    #     azure_endpoint="https://chuangsweden.openai.azure.com/openai/deployments/gpt-4v/chat/completions?api-version=2024-02-15-preview",
+    #     api_key=api_key,
+    #     api_version="2024-02-15-preview"
+    # )
     completion = client.chat.completions.create(
         model=model,
         messages=messages,

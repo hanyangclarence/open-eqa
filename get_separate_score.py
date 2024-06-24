@@ -1,8 +1,8 @@
 import json
 import numpy as np
 
-gt_path = 'data/open-eqa-v0.json'
-pred_path = 'data/metrics/openeqa_cg_output-metrics.json'
+gt_path = 'data/open-eqa-subset-questions.json'
+pred_path = 'data/metrics/open-eqa-subset-questionsbaseline-gpt-4-vision-preview-1234-metrics.json'
 
 separate_scores = {}
 gt = json.load(open(gt_path))
