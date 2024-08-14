@@ -38,13 +38,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--frames-directory",
         type=Path,
-        default="data/prediction_frames/",
+        default="data/baseline_frames/",
         help="path image frames (default: data/frames/)",
     )
     parser.add_argument(
         "--num-frames",
         type=int,
-        default=10,
+        default=20,
         help="num frames in gpt4v (default: 50)",
     )
     parser.add_argument(
@@ -96,7 +96,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     args.output_directory.mkdir(parents=True, exist_ok=True)
     args.output_path = args.output_directory / (
-        args.dataset.stem + "-prediction-{}-{}-{}.json".format(args.run_id, args.model, args.seed)
+        args.dataset.stem + "-prediction-veqa-{}-{}-{}.json".format(args.run_id, args.model, args.seed)
     )
     return args
 
@@ -164,15 +164,13 @@ def main(args: argparse.Namespace):
             continue  # skip existing
 
         # extract scene paths
-        folder = args.frames_directory / question_id / "object_observations"
+        folder = args.frames_directory / question_id / "snapshots"
         # frames = os.listdir(folder)
         # frames = [frame for frame in frames if frame.endswith(".png")]
         # frames = sorted(frames)
         frames = sorted(folder.glob("*.png"))
-        if len(frames) < 1:
-            print("no enough frames found for question_id: {}".format(question_id))
-            continue
         indices = np.round(np.linspace(0, len(frames) - 1, args.num_frames)).astype(int)
+        
         if len(frames) > args.num_frames:
             paths = [str(frames[i]) for i in indices]
         else:

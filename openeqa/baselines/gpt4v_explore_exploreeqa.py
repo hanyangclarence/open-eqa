@@ -93,7 +93,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="only process the first 5 questions",
     )
+    parser.add_argument(
+        "--round",
+        action="store_true",
+        default=False
+    )
     args = parser.parse_args()
+    if args.round:
+        args.run_id + "-round"
     args.output_directory.mkdir(parents=True, exist_ok=True)
     args.output_path = args.output_directory / (
         args.dataset.stem + "-prediction-{}-{}-{}.json".format(args.run_id, args.model, args.seed)
@@ -169,10 +176,15 @@ def main(args: argparse.Namespace):
         # frames = [frame for frame in frames if frame.endswith(".png")]
         # frames = sorted(frames)
         frames = sorted(folder.glob("*.png"))
-        if len(frames) < 1:
+        if args.round:
+            frames = [frame for frame in frames if str(frame).startswith("round")]
+        else:
+            frames = [frame for frame in frames if not str(frame).startswith("round")]
+        if len(frames) < 5:
             print("no enough frames found for question_id: {}".format(question_id))
             continue
         indices = np.round(np.linspace(0, len(frames) - 1, args.num_frames)).astype(int)
+        # paths = [str(frames[i]) for i in indices]
         if len(frames) > args.num_frames:
             paths = [str(frames[i]) for i in indices]
         else:
