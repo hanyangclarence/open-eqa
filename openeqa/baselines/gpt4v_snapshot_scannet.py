@@ -151,6 +151,9 @@ def main(args: argparse.Namespace):
     dataset = json.load(args.dataset.open("r"))
     print("found {:,} questions".format(len(dataset)))
 
+    # filter out questions in hm3d
+    dataset = [item for item in dataset if 'hm3d-v0' not in item['episode_history']]
+
     # sample a random subset if requested
     if args.random_subset is not None:
         dataset = random.sample(dataset, args.random_subset)
