@@ -95,7 +95,7 @@ def parse_args() -> argparse.Namespace:
         help="only process the first 5 questions",
     )
     parser.add_argument(
-        "--random_subset",
+        "--first_n_per_scene",
         type=int,
         default=None,
     )
@@ -154,10 +154,26 @@ def main(args: argparse.Namespace):
     # filter out questions in hm3d
     dataset = [item for item in dataset if 'hm3d-v0' not in item['episode_history']]
 
-    # sample a random subset if requested
-    if args.random_subset is not None:
-        dataset = random.sample(dataset, args.random_subset)
-        print(f"sampled {len(dataset)} questions")
+    # get a subset of the question if requested
+    scene_id_to_question = {}
+    for question_data in dataset:
+        if 'hm3d-v0' in question_data['episode_history']:
+            continue
+        scene_id = question_data['episode_history'].split("/")[1]
+        if scene_id not in scene_id_to_question:
+            scene_id_to_question[scene_id] = []
+        scene_id_to_question[scene_id].append(question_data)
+    for scene_id, questions in scene_id_to_question.items():
+        # sort by question id
+        questions = sorted(questions, key=lambda x: x['question_id'])
+        # take the first n questions
+        if args.first_n_per_scene is not None:
+            questions = questions[:args.first_n_per_scene]
+        scene_id_to_question[scene_id] = questions
+    dataset = []
+    for scene_id, questions in scene_id_to_question.items():
+        dataset.extend(questions)
+    print(f"found {len(dataset)} questions in {len(scene_id_to_question)} scenes")
 
     # load results
     results = []
