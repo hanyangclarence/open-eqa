@@ -9,6 +9,7 @@ import os
 import traceback
 from pathlib import Path
 from typing import List, Optional
+import random
 
 import numpy as np
 import tqdm
@@ -32,19 +33,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4-vision-preview",
+        default="gpt-4o",
         help="OpenAI model (default: gpt-4-vision-preview)",
     )
     parser.add_argument(
         "--frames-directory",
         type=Path,
-        default="data/frames/",
+        default="/project/pi_chuangg_umass_edu/yuncong/scene_data_scannet/",
         help="path image frames (default: data/frames/)",
     )
     parser.add_argument(
         "--num-frames",
         type=int,
-        default=50,
+        default=15,
         help="num frames in gpt4v (default: 50)",
     )
     parser.add_argument(
@@ -78,6 +79,12 @@ def parse_args() -> argparse.Namespace:
         help="output directory (default: data/results)",
     )
     parser.add_argument(
+        "--run_id",
+        type=str,
+        default="",
+        help="run id (default: '')",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="continue running on API errors (default: false)",
@@ -87,10 +94,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="only process the first 5 questions",
     )
+    parser.add_argument(
+        "--random_subset",
+        type=int,
+        default=None,
+    )
     args = parser.parse_args()
     args.output_directory.mkdir(parents=True, exist_ok=True)
     args.output_path = args.output_directory / (
-        args.dataset.stem + "-{}-{}.json".format(args.model, args.seed)
+        args.dataset.stem + "-prediction-{}-{}-{}.json".format(args.run_id, args.model, args.seed)
     )
     return args
 
@@ -133,10 +145,16 @@ def ask_question(
 def main(args: argparse.Namespace):
     # check for openai api key
     assert "OPENAI_API_KEY" in os.environ
+    random.seed(args.seed)
 
     # load dataset
     dataset = json.load(args.dataset.open("r"))
     print("found {:,} questions".format(len(dataset)))
+
+    # sample a random subset if requested
+    if args.random_subset is not None:
+        dataset = random.sample(dataset, args.random_subset)
+        print(f"sampled {len(dataset)} questions")
 
     # load results
     results = []
@@ -154,18 +172,23 @@ def main(args: argparse.Namespace):
         question_id = item["question_id"]
         if question_id in completed:
             continue  # skip existing
+        
+        if 'hm3d-v0' in item['episode_history']:
+            continue
 
-        # extract scene paths
-        folder = args.frames_directory / item["episode_history"]
-        frames = sorted(folder.glob("*-rgb.png"))
-        indices = np.round(np.linspace(0, len(frames) - 1, args.num_frames)).astype(int)
-        paths = [str(frames[i]) for i in indices]
+        scene_id = item["episode_history"].split("/")[1]
+        scene_folder = os.path.join(args.frames_directory, scene_id)
+        snapshot_data = json.load(open(os.path.join(scene_folder, "snapshots_inclusive_merged.json")))
+        frames = snapshot_data.keys()
+        frames = [os.path.join(scene_folder, 'results', frame) for frame in frames]
+        frames = sorted(frames)
+        frames = frames[:args.num_frames]
 
         # generate answer
         question = item["question"]
         answer = ask_question(
             question=question,
-            image_paths=paths,
+            image_paths=frames,
             image_size=args.image_size,
             openai_model=args.model,
             openai_seed=args.seed,
