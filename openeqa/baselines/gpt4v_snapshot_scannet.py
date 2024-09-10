@@ -181,6 +181,14 @@ def main(args: argparse.Namespace):
 
         scene_id = item["episode_history"].split("/")[1]
         scene_folder = os.path.join(args.frames_directory, scene_id)
+
+        if not os.path.exists(scene_folder):
+            print(f"scene folder {scene_folder} not found")
+            continue
+        if not os.path.exists(os.path.join(scene_folder, "snapshots_inclusive_merged.json")):
+            print(f"scene folder {scene_folder} doesn't have snapshots_inclusive_merged.json")
+            continue
+
         snapshot_data = json.load(open(os.path.join(scene_folder, "snapshots_inclusive_merged.json")))
         frames = snapshot_data.keys()
         frames = [os.path.join(scene_folder, 'results', frame) for frame in frames]
