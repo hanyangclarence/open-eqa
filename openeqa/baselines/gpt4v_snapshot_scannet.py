@@ -8,13 +8,14 @@ import json
 import os
 import traceback
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
+import numpy as np
 import tqdm
 
 from openeqa.utils.openai_utils import (
     call_openai_api,
-    prepare_openai_messages,
+    prepare_openai_vision_messages,
     set_openai_key,
 )
 from openeqa.utils.prompt_utils import load_prompt
@@ -31,8 +32,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4-0613",
-        help="GPT model (default: gpt-4-0613)",
+        default="gpt-4-vision-preview",
+        help="OpenAI model (default: gpt-4-vision-preview)",
+    )
+    parser.add_argument(
+        "--frames-directory",
+        type=Path,
+        default="data/frames/",
+        help="path image frames (default: data/frames/)",
+    )
+    parser.add_argument(
+        "--num-frames",
+        type=int,
+        default=50,
+        help="num frames in gpt4v (default: 50)",
+    )
+    parser.add_argument(
+        "--image-size",
+        type=int,
+        default=512,
+        help="image size (default: 512)",
     )
     parser.add_argument(
         "--seed",
@@ -76,29 +95,27 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def parse_output(output: str) -> str:
-    start_idx = output.find("A:")
-    if start_idx == -1:
-        raise ValueError("Invalid output string: {}".format(output))
-    end_idx = output.find("\n", start_idx)
-    if end_idx == -1:
-        return output[start_idx:].replace("A:", "").strip()
-    return output[start_idx:end_idx].replace("A:", "").strip()
-
-
 def ask_question(
     question: str,
+    image_paths: List,
+    image_size: int = 512,
     openai_key: Optional[str] = None,
-    openai_model: str = "gpt-4-0613",
+    openai_model: str = "gpt-4-vision-preview",
     openai_seed: int = 1234,
     openai_max_tokens: int = 128,
     openai_temperature: float = 0.2,
     force: bool = False,
 ) -> Optional[str]:
     try:
-        prompt = load_prompt("blind-llm")
         set_openai_key(key=openai_key)
-        messages = prepare_openai_messages(prompt.format(question=question))
+
+        prompt = load_prompt("gpt4v")
+        prefix, suffix = prompt.split("User Query:")
+        suffix = "User Query:" + suffix.format(question=question)
+
+        messages = prepare_openai_vision_messages(
+            prefix=prefix, suffix=suffix, image_paths=image_paths, image_size=image_size
+        )
         output = call_openai_api(
             messages=messages,
             model=openai_model,
@@ -106,7 +123,7 @@ def ask_question(
             max_tokens=openai_max_tokens,
             temperature=openai_temperature,
         )
-        return parse_output(output)
+        return output
     except Exception as e:
         if not force:
             traceback.print_exc()
@@ -138,10 +155,18 @@ def main(args: argparse.Namespace):
         if question_id in completed:
             continue  # skip existing
 
+        # extract scene paths
+        folder = args.frames_directory / item["episode_history"]
+        frames = sorted(folder.glob("*-rgb.png"))
+        indices = np.round(np.linspace(0, len(frames) - 1, args.num_frames)).astype(int)
+        paths = [str(frames[i]) for i in indices]
+
         # generate answer
         question = item["question"]
         answer = ask_question(
             question=question,
+            image_paths=paths,
+            image_size=args.image_size,
             openai_model=args.model,
             openai_seed=args.seed,
             openai_max_tokens=args.max_tokens,
